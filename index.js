@@ -7,20 +7,13 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const fetch = require('node-fetch');
 const fs = require('fs');
-const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
-const apiSecretKey = process.env.CHARGILY_API_SECRET_KEY;
-const port = process.env.PORT || 3002;
 
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000'
-}));
 
-// MySQL Connection
 const db = mysql.createConnection({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -35,14 +28,17 @@ db.connect((err) => {
     throw err;
   }
   console.log('MySQL connected...');
-  createUsersTable();
 });
+
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000'
+}));
 
 const createUsersTable = () => {
   const sql = `
     CREATE TABLE IF NOT EXISTS users (
       id VARCHAR(36) PRIMARY KEY,
-      name VARCHAR(255),
+      lastName VARCHAR(255),
       firstName VARCHAR(255),
       phoneNumber VARCHAR(255),
       dateOfBirth DATE,
@@ -57,7 +53,7 @@ const createUsersTable = () => {
       paymentDate DATETIME
     );
   `;
-  db.query(sql, (err) => {
+  db.query(sql, (err, result) => {
     if (err) {
       console.error('Error creating users table:', err);
       throw err;
@@ -65,6 +61,28 @@ const createUsersTable = () => {
     console.log('Users table created or exists already.');
   });
 };
+createUsersTable();
+
+const createContactsTable = () => {
+  const sql = `
+    CREATE TABLE IF NOT EXISTS contacts (
+      id VARCHAR(36) PRIMARY KEY,
+      firstName VARCHAR(255),
+      lastName VARCHAR(255),
+      phoneNumber VARCHAR(255),
+      email VARCHAR(255),
+      message TEXT
+    );
+  `;
+  db.query(sql, (err, result) => {
+    if (err) {
+      console.error('Error creating contacts table:', err);
+      throw err;
+    }
+    console.log('Contacts table created or exists already.');
+  });
+};
+createContactsTable();
 
 const uploadDir = 'uploads/';
 if (!fs.existsSync(uploadDir)) {
@@ -79,7 +97,21 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${file.originalname}`);
   }
 });
-const upload = multer({ storage });
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only JPEG, PNG, and GIF are allowed.'));
+  }
+};
+
+const upload = multer({ 
+  storage, 
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
 
 app.post('/register', upload.fields([
   { name: 'idCardFront', maxCount: 1 },
@@ -88,18 +120,19 @@ app.post('/register', upload.fields([
   { name: 'selfie', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const { name, firstName, phoneNumber, dateOfBirth, sex, state, municipality } = req.body;
+    const { lastName, firstName, phoneNumber, dateOfBirth, sex, state, municipality } = req.body;
     const idCardFront = req.files['idCardFront'][0].filename;
     const idCardBack = req.files['idCardBack'][0].filename;
     const signature = req.files['signature'][0].filename;
     const selfie = req.files['selfie'][0].filename;
 
     const userId = uuidv4();
+
     const sql = `INSERT INTO users (id, name, firstName, phoneNumber, dateOfBirth, sex, state, municipality, idCardFront, idCardBack, signature, selfie)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const values = [userId, name, firstName, phoneNumber, dateOfBirth, sex, state, municipality, idCardFront, idCardBack, signature, selfie];
+    const values = [userId, lastName, firstName, phoneNumber, dateOfBirth, sex, state, municipality, idCardFront, idCardBack, signature, selfie];
 
-    db.query(sql, values, async (err) => {
+    db.query(sql, values, async (err, result) => {
       if (err) {
         console.error('Database error:', err);
         res.status(500).send('Server error');
@@ -110,17 +143,17 @@ app.post('/register', upload.fields([
         method: 'POST',
         headers: {
           Authorization: `Bearer ${process.env.CHARGILY_API_KEY}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           amount: 2000,
           currency: 'dzd',
-          success_url: `${process.env.SUCCESS_URL}?userId=${userId}`,
-        }),
+          success_url: `${process.env.SUCCESS_URL}?userId=${userId}`
+        })
       };
 
       try {
-        const response = await fetch('https://pay.chargily.net/api/v2/checkouts', options);
+        const response = await fetch('https://pay.chargily.dz/test/api/v2/checkouts', options);
         const paymentData = await response.json();
         if (paymentData && paymentData.checkout_url) {
           res.status(200).send({ message: 'User registered successfully', userId, paymentLink: paymentData.checkout_url });
@@ -139,46 +172,25 @@ app.post('/register', upload.fields([
   }
 });
 
-app.post('/webhook', (req, res) => {
-  const signature = req.get('signature');
-  const payload = JSON.stringify(req.body);
+app.post('/submitContact', (req, res) => {
+  const { firstName, lastName, phoneNumber, email, message } = req.body;
+  const contactId = uuidv4();
 
-  if (!signature) {
-    return res.sendStatus(400);
-  }
+  const sql = `INSERT INTO contacts (id, firstName, lastName, phoneNumber, email, message)
+               VALUES (?, ?, ?, ?, ?, ?)`;
+  const values = [contactId, firstName, lastName, phoneNumber, email, message];
 
-  const computedSignature = crypto.createHmac('sha256', apiSecretKey)
-    .update(payload)
-    .digest('hex');
-
-  if (computedSignature !== signature) {
-    return res.sendStatus(403);
-  }
-
-  const event = req.body;
-
-  switch (event.type) {
-    case 'checkout.paid':
-      const checkout = event.data;
-      const userId = checkout.invoice.reference;
-      const sql = `UPDATE users SET paymentStatus = TRUE, paymentDate = NOW() WHERE id = ?`;
-      db.query(sql, [userId], (err) => {
-        if (err) {
-          console.error('Database update error:', err);
-          return res.sendStatus(500);
-        }
-        console.log(`User ${userId} payment status updated.`);
-      });
-      break;
-    case 'checkout.failed':
-      const failedCheckout = event.data;
-      // Handle the failed payment if needed
-      break;
-  }
-
-  res.sendStatus(200);
+  db.query(sql, values, (err, result) => {
+    if (err) {
+      console.error('Database error:', err);
+      res.status(500).send('Server error');
+      return;
+    }
+    res.status(200).send({ message: 'Contact form submitted successfully', contactId });
+  });
 });
 
-app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+const PORT = process.env.PORT || 3002;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
