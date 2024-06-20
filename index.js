@@ -232,6 +232,12 @@ app.post('/gt/webhook', (req, res) => {
     return res.status(400).send('Missing signature');
   }
 
+  if (!verifySignature(payload, signature, apiSecretKey)) {
+    console.log('Invalid signature');
+    return res.status(403).send('Invalid signature');
+  }
+
+  /*
   const computedSignature = crypto.createHmac('sha256', apiSecretKey)
     .update(payload)
     .digest('hex');
@@ -243,6 +249,8 @@ app.post('/gt/webhook', (req, res) => {
     console.log('Invalid signature');
     return res.status(403).send('Invalid signature');
   }
+  */
+  
 
   const event = req.body;
 
@@ -285,6 +293,38 @@ app.post('/gt/webhook', (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
+
+
+export function verifySignature(
+  payload,
+  signature,
+  secretKey
+) {
+  if (!signature) {
+    return false;
+  }
+
+  const sigPrefix = ''; // Define if there's a specific prefix used
+  const sigHashAlg = 'sha256'; // Define the hashing algorithm
+  const computedSignature = crypto
+    .createHmac(sigHashAlg, secretKey)
+    .update(payload)
+    .digest('hex');
+
+  const digest = Buffer.from(sigPrefix + computedSignature, 'utf8');
+  const signatureBuffer = Buffer.from(signature, 'utf8');
+
+  if (
+    signatureBuffer.length !== digest.length ||
+    !crypto.timingSafeEqual(digest, signatureBuffer)
+  ) {
+    throw new Error('The signature is invalid.');
+  }
+
+  console.log('The signature is valid');
+  return true;
+}
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
