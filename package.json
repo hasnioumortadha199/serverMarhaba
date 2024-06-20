@@ -1,5 +1,6 @@
 {
   "name": "server",
+  "homepage": "https://marhaba.dz/",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -28,6 +29,7 @@
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.2.3",
     "react-router-dom": "^6.23.1",
+    "sharp": "^0.33.4",
     "sql": "^0.78.0",
     "uuid": "^9.0.1"
   }

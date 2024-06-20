@@ -7,19 +7,21 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const fetch = require('node-fetch');
 const fs = require('fs');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
+const token = "test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp";
 
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const db = mysql.createConnection({
   host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  port: process.env.DB_PORT || '3307',
-  password: process.env.DB_PASSWORD || 'mysql',
-  database: process.env.DB_NAME || 'condidate'
+  user: process.env.DB_USER || 'marhab21_marhaba24',
+  port: process.env.DB_PORT || '3306',
+  password: process.env.DB_PASSWORD || 'F2au+vp,uO2J',
+  database: process.env.DB_NAME || 'marhab21_newdb'
 });
 
 db.connect((err) => {
@@ -41,6 +43,7 @@ const createUsersTable = () => {
       lastName VARCHAR(255),
       firstName VARCHAR(255),
       phoneNumber VARCHAR(255),
+      invoice_id VARCHAR(255),
       dateOfBirth DATE,
       sex VARCHAR(255),
       state VARCHAR(255),
@@ -113,42 +116,62 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
-app.post('/register', upload.fields([
+app.post('/gt/register', upload.fields([
   { name: 'idCardFront', maxCount: 1 },
   { name: 'idCardBack', maxCount: 1 },
   { name: 'signature', maxCount: 1 },
   { name: 'selfie', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const { lastName, firstName, phoneNumber, dateOfBirth, sex, state, municipality } = req.body;
+    console.log('Received registration request:', req.body);
+    console.log('Files received:', req.files);
+
+    const { lastname, firstName, phoneNumber, dateOfBirth, sex, state, municipality } = req.body;
+
+    if (!req.files['idCardFront'] || !req.files['idCardBack'] || !req.files['signature'] || !req.files['selfie']) {
+      console.error('Missing files');
+      res.status(400).send('Missing required files');
+      return;
+    }
+
     const idCardFront = req.files['idCardFront'][0].filename;
     const idCardBack = req.files['idCardBack'][0].filename;
     const signature = req.files['signature'][0].filename;
     const selfie = req.files['selfie'][0].filename;
+    
+    const options = {
+      method: 'POST',
+      headers: {Authorization: 'Bearer test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp', 'Content-Type': 'application/json'},
+      body: JSON.stringify({"name": `${firstName} ${lastname}` ,"email": "ouss1234@gmail.com","phone": phoneNumber}),
+    };
+    
 
-    const userId = uuidv4();
-
-    const sql = `INSERT INTO users (id, name, firstName, phoneNumber, dateOfBirth, sex, state, municipality, idCardFront, idCardBack, signature, selfie)
+    
+    let response = await fetch('https://pay.chargily.net/test/api/v2/customers', options); 
+    let user = await response.json();
+  
+    const sql = `INSERT INTO users (id, lastName, firstName, phoneNumber, dateOfBirth, sex, state, municipality, idCardFront, idCardBack, signature, selfie)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const values = [userId, lastName, firstName, phoneNumber, dateOfBirth, sex, state, municipality, idCardFront, idCardBack, signature, selfie];
+    const values = [user.id, lastname, firstName, phoneNumber, dateOfBirth, sex, state, municipality, idCardFront, idCardBack, signature, selfie];
 
     db.query(sql, values, async (err, result) => {
       if (err) {
         console.error('Database error:', err);
-        res.status(500).send('Server error');
+        res.status(500).send({err: err, msg: "db error"});
         return;
       }
 
       const options = {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${process.env.CHARGILY_API_KEY}`,
+          Authorization: `Bearer test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           amount: 2000,
           currency: 'dzd',
-          success_url: `${process.env.SUCCESS_URL}?userId=${userId}`
+          success_url: `${process.env.SUCCESS_URL}?userId=${user.id}`,
+          customer_id: user.id,
         })
       };
 
@@ -156,9 +179,11 @@ app.post('/register', upload.fields([
         const response = await fetch('https://pay.chargily.dz/test/api/v2/checkouts', options);
         const paymentData = await response.json();
         if (paymentData && paymentData.checkout_url) {
-          res.status(200).send({ message: 'User registered successfully', userId, paymentLink: paymentData.checkout_url });
+          console.log('Payment link created:', paymentData.checkout_url);
+          res.status(200).send({ message: 'User registered successfully', userId: user.id, paymentLink: paymentData.checkout_url });
         } else {
           console.error('Payment creation error:', paymentData);
+          console.error('Payment response:', paymentData);
           res.status(500).send('Failed to create payment');
         }
       } catch (error) {
@@ -172,7 +197,8 @@ app.post('/register', upload.fields([
   }
 });
 
-app.post('/submitContact', (req, res) => {
+app.post('/gt/submitContact', (req, res) => {
+  console.log('Received contact submission request');
   const { firstName, lastName, phoneNumber, email, message } = req.body;
   const contactId = uuidv4();
 
@@ -190,7 +216,72 @@ app.post('/submitContact', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3002;
+// Webhook endpoint for Chargily
+app.post('/gt/webhook', (req, res) => {
+  console.log('Webhook received with body:', req.body);
+  const signature = req.get('signature');
+  const payload = JSON.stringify(req.body);
+
+  if (!signature) {
+    console.log('Missing signature');
+    return res.status(400).send('Missing signature');
+  }
+
+  const computedSignature = crypto.createHmac('sha256', 'test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp')
+    .update(payload)
+    .digest('hex');
+
+  console.log('Received Signature:', signature);
+  console.log('Computed Signature:', computedSignature);
+
+  if (computedSignature !== signature) {
+    console.log('Invalid signature');
+    return res.status(403).send('Invalid signature');
+  }
+
+  const event = req.body;
+
+  try {
+    switch (event.type) {
+      case 'checkout.paid':
+        const checkout = event.data;
+
+        // Ensure we have the expected data
+        if (!checkout || !checkout.created_at || !checkout.invoice_id || !checkout.customer_id) {
+          console.log('Missing expected data in the event payload:', checkout);
+          return res.status(400).send('Missing expected data in the event payload');
+        }
+
+        const paymentDate = new Date(checkout.created_at * 1000); // Assuming created_at is a Unix timestamp
+
+        db.query(
+          'UPDATE users SET paymentStatus = TRUE, paymentDate = ?, invoice_id = ? WHERE id = ?',
+          [paymentDate, checkout.invoice_id, checkout.customer_id],
+          (err, result) => {
+            if (err) {
+              console.error('Database error:', err);
+              return res.status(500).send('Database error');
+            }
+
+            console.log(`Payment status updated for user ${checkout.customer_id}`);
+            res.status(200).send('Payment status updated');
+          }
+        );
+        break;
+      case 'checkout.failed':
+        res.status(403).send('Payment failed');
+        break;
+      default:
+        res.status(403).send('Event type not handled');
+        break;
+    }
+  } catch (error) {
+    console.error('Error handling webhook event:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
