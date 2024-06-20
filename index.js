@@ -319,7 +319,10 @@ function verifySignature(
     signatureBuffer.length !== digest.length ||
     !crypto.timingSafeEqual(digest, signatureBuffer)
   ) {
-    throw new Error('The signature is invalid.');
+    console.log('The signature is not valid');
+    console.log(`computedSignature : ${computedSignature} `);
+    console.log(`signature : ${signature} `);
+    return false;
   }
 
   console.log('The signature is valid');
