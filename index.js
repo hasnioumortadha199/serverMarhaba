@@ -17,11 +17,11 @@ app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const db = mysql.createConnection({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'marhab21_marhaba24',
-  port: process.env.DB_PORT || '3306',
-  password: process.env.DB_PASSWORD || 'F2au+vp,uO2J',
-  database: process.env.DB_NAME || 'marhab21_newdb'
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  port: process.env.DB_PORT,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
 });
 
 db.connect((err) => {
@@ -141,11 +141,9 @@ app.post('/gt/register', upload.fields([
     
     const options = {
       method: 'POST',
-      headers: {Authorization: 'Bearer test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp', 'Content-Type': 'application/json'},
+      headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},
       body: JSON.stringify({"name": `${firstName} ${lastname}` ,"email": "ouss1234@gmail.com","phone": phoneNumber}),
     };
-    
-
     
     let response = await fetch('https://pay.chargily.net/test/api/v2/customers', options); 
     let user = await response.json();
@@ -164,7 +162,7 @@ app.post('/gt/register', upload.fields([
       const options = {
         method: 'POST',
         headers: {
-          Authorization: `Bearer test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -183,7 +181,6 @@ app.post('/gt/register', upload.fields([
           res.status(200).send({ message: 'User registered successfully', userId: user.id, paymentLink: paymentData.checkout_url });
         } else {
           console.error('Payment creation error:', paymentData);
-          console.error('Payment response:', paymentData);
           res.status(500).send('Failed to create payment');
         }
       } catch (error) {
@@ -227,7 +224,7 @@ app.post('/gt/webhook', (req, res) => {
     return res.status(400).send('Missing signature');
   }
 
-  const computedSignature = crypto.createHmac('sha256', 'test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp')
+  const computedSignature = crypto.createHmac('sha256', token)
     .update(payload)
     .digest('hex');
 
