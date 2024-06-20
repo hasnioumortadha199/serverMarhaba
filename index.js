@@ -170,7 +170,7 @@ app.post('/gt/register', upload.fields([
       const options = {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiSecretKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -232,7 +232,7 @@ app.post('/gt/webhook', (req, res) => {
     return res.status(400).send('Missing signature');
   }
 
-  const computedSignature = crypto.createHmac('sha256', apiSecretKey)
+  const computedSignature = crypto.createHmac('sha256', apiKey)
     .update(payload)
     .digest('hex');
 
