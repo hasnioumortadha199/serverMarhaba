@@ -296,7 +296,7 @@ app.post('/gt/webhook', (req, res) => {
 
 
 
-export function verifySignature(
+function verifySignature(
   payload,
   signature,
   secretKey
