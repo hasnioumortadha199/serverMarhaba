@@ -232,7 +232,7 @@ app.post('/gt/webhook', (req, res) => {
     return res.status(400).send('Missing signature');
   }
 
-  const computedSignature = crypto.createHmac('sha256', apiKey)
+  const computedSignature = crypto.createHmac('sha256', apiSecretKey)
     .update(payload)
     .digest('hex');
 
