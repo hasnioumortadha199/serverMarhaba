@@ -11,7 +11,7 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
-const token = "test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp";
+const token = process.env.CHARGILY_API_SECRET_KEY;
 
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -33,7 +33,7 @@ db.connect((err) => {
 });
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000'
+  origin: process.env.CORS_ORIGIN
 }));
 
 const createUsersTable = () => {
