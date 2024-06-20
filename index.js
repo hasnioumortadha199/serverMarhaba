@@ -20,7 +20,9 @@ const db_user = "doadmin";
 const db_port = 25060;
 const db_password = "AVNS_2x2McnsyjurtZXh2i0I";
 const db_name = "condidate";
-const token = "test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp";
+const apiSecretKey = "test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp";
+const apiKey = "test_pk_Rg6866bvEo3fzL87oohr1TKTynAs0R7dI1ratvBg";
+
 
 const db = mysql.createConnection({
   host: db_host ,
@@ -147,7 +149,7 @@ app.post('/gt/register', upload.fields([
     
     const options = {
       method: 'POST',
-      headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},
+      headers: {Authorization: `Bearer ${apiSecretKey}`, 'Content-Type': 'application/json'},
       body: JSON.stringify({"name": `${firstName} ${lastname}` ,"email": "ouss1234@gmail.com","phone": phoneNumber}),
     };
     
@@ -168,7 +170,7 @@ app.post('/gt/register', upload.fields([
       const options = {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -230,7 +232,7 @@ app.post('/gt/webhook', (req, res) => {
     return res.status(400).send('Missing signature');
   }
 
-  const computedSignature = crypto.createHmac('sha256', token)
+  const computedSignature = crypto.createHmac('sha256', apiSecretKey)
     .update(payload)
     .digest('hex');
 
