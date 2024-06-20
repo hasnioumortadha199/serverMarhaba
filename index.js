@@ -11,18 +11,20 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
-const token = process.env.CHARGILY_API_SECRET_KEY;
 
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-const db_host = db-mysql-nyc1-35246-do-user-13689167-0.c.db.ondigitalocean.com;
-const db_user = doadmin;
+
+const db_host = "db-mysql-nyc1-35246-do-user-13689167-0.c.db.ondigitalocean.com";
+const db_user = "doadmin";
 const db_port = 25060;
-const db_password = AVNS_2x2McnsyjurtZXh2i0I;
-const db_name = defaultdb;
+const db_password = "AVNS_2x2McnsyjurtZXh2i0I";
+const db_name = "condidate";
+const token = "test_sk_F6EMHwHlrFJbPWbiOej3ZSSMEAuINy2Giu3sOYLp";
+
 const db = mysql.createConnection({
-  host: db-mysql-nyc1-35246-do-user-13689167-0.c.db.ondigitalocean.com,
-  user: doadmin,
+  host: db_host ,
+  user: db_user,
   port: db_port,
   password: db_password,
   database: db_name
