@@ -15,13 +15,17 @@ const token = process.env.CHARGILY_API_SECRET_KEY;
 
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+const db_host = db-mysql-nyc1-35246-do-user-13689167-0.c.db.ondigitalocean.com;
+const db_user = doadmin;
+const db_port = 25060;
+const db_password = AVNS_2x2McnsyjurtZXh2i0I;
+const db_name = defaultdb;
 const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  port: process.env.DB_PORT,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
+  host: db-mysql-nyc1-35246-do-user-13689167-0.c.db.ondigitalocean.com,
+  user: doadmin,
+  port: db_port,
+  password: db_password,
+  database: db_name
 });
 
 db.connect((err) => {
