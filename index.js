@@ -15,16 +15,17 @@ const app = express();
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const db_host = process.env.DB_HOST;
-const db_user = process.env.DB_USER;
-const db_port = process.env.DB_PORT;
-const db_password = process.env.DB_PASSWORD;
-const db_name = process.env.DB_NAME;
-const apiSecretKey = process.env.API_SECRET_KEY;
-const apiKey = process.env.API_KEY;
+const db_host = "db-mysql-nyc1-35246-do-user-13689167-0.c.db.ondigitalocean.com";
+const db_user = "doadmin";
+const db_port = 25060;
+const db_password = "AVNS_2x2McnsyjurtZXh2i0I";
+const db_name = "condidate";
+const apiSecretKey = "test_sk_I0qMA5IjeWBnL8ISZISQItxOYkOUvzsXKFDTI4tn";
+const apiKey = "test_pk_8UhBFl3ojxdyeKQnwWQTy4gQJnrxkfqk1jT8BFhy";
+
 
 const db = mysql.createConnection({
-  host: db_host,
+  host: db_host ,
   user: db_user,
   port: db_port,
   password: db_password,
@@ -236,6 +237,21 @@ app.post('/gt/webhook', (req, res) => {
     return res.status(403).send('Invalid signature');
   }
 
+  /*
+  const computedSignature = crypto.createHmac('sha256', apiSecretKey)
+    .update(payload)
+    .digest('hex');
+
+  console.log('Received Signature:', signature);
+  console.log('Computed Signature:', computedSignature);
+
+  if (computedSignature !== signature) {
+    console.log('Invalid signature');
+    return res.status(403).send('Invalid signature');
+  }
+  */
+  
+
   const event = req.body;
 
   try {
@@ -278,7 +294,13 @@ app.post('/gt/webhook', (req, res) => {
   }
 });
 
-function verifySignature(payload, signature, secretKey) {
+
+
+function verifySignature(
+  payload,
+  signature,
+  secretKey
+) {
   if (!signature) {
     return false;
   }
@@ -298,8 +320,8 @@ function verifySignature(payload, signature, secretKey) {
     !crypto.timingSafeEqual(digest, signatureBuffer)
   ) {
     console.log('The signature is not valid');
-    console.log(`computedSignature: ${computedSignature}`);
-    console.log(`signature: ${signature}`);
+    console.log(`computedSignature : ${computedSignature} `);
+    console.log(`signature : ${signature} `);
     return false;
   }
 
