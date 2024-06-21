@@ -21,7 +21,6 @@ app.use(bodyParser.json({
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-
 const db_host = "db-mysql-nyc1-35246-do-user-13689167-0.c.db.ondigitalocean.com";
 const db_user = "doadmin";
 const db_port = 25060;
@@ -261,16 +260,17 @@ app.post('/gt/webhook', (req, res) => {
         const checkout = event.data;
 
         // Ensure we have the expected data
-        if (!checkout || !checkout.created_at || !checkout.invoice_id || !checkout.customer_id) {
+        if (!checkout || !checkout.created_at || !checkout.customer_id) {
           console.log('Missing expected data in the event payload:', checkout);
           return res.status(400).send('Missing expected data in the event payload');
         }
 
         const paymentDate = new Date(checkout.created_at * 1000); // Assuming created_at is a Unix timestamp
+        const invoiceId = checkout.invoice_id || 'N/A'; // Handling missing invoice_id
 
         db.query(
           'UPDATE users SET paymentStatus = TRUE, paymentDate = ?, invoice_id = ? WHERE id = ?',
-          [paymentDate, checkout.invoice_id, checkout.customer_id],
+          [paymentDate, invoiceId, checkout.customer_id],
           (err, result) => {
             if (err) {
               console.error('Database error:', err);
