@@ -12,8 +12,15 @@ require('dotenv').config();
 
 const app = express();
 
-app.use(bodyParser.json());
+// Middleware to capture raw body
+app.use(bodyParser.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 const db_host = "db-mysql-nyc1-35246-do-user-13689167-0.c.db.ondigitalocean.com";
 const db_user = "doadmin";
@@ -22,7 +29,6 @@ const db_password = "AVNS_2x2McnsyjurtZXh2i0I";
 const db_name = "condidate";
 const apiSecretKey = "test_sk_I0qMA5IjeWBnL8ISZISQItxOYkOUvzsXKFDTI4tn";
 const apiKey = "test_pk_8UhBFl3ojxdyeKQnwWQTy4gQJnrxkfqk1jT8BFhy";
-
 
 const db = mysql.createConnection({
   host: db_host,
@@ -223,7 +229,7 @@ app.post('/gt/submitContact', (req, res) => {
 
 // Webhook endpoint for Chargily
 app.post('/gt/webhook', (req, res) => {
-  console.log('Webhook received with body:', req.body);
+  console.log('Webhook received with body:', req.rawBody);
   const signature = req.get('signature');
 
   // If there is no signature, ignore the request
@@ -232,12 +238,9 @@ app.post('/gt/webhook', (req, res) => {
     return res.status(400).send('Missing signature');
   }
 
-  // Getting the raw payload from the request body
-  const payload = JSON.stringify(req.body);
-
   // Calculate the signature
   const computedSignature = crypto.createHmac('sha256', apiSecretKey)
-    .update(payload)
+    .update(req.rawBody)
     .digest('hex');
 
   // If the calculated signature doesn't match the received signature, ignore the request
@@ -249,7 +252,7 @@ app.post('/gt/webhook', (req, res) => {
   }
 
   // If the signatures match, proceed to decode the JSON payload
-  const event = req.body;
+  const event = JSON.parse(req.rawBody);
 
   // Switch based on the event type
   try {
