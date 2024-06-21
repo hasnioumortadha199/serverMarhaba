@@ -23,6 +23,7 @@ const db_name = "condidate";
 const apiSecretKey = "test_sk_I0qMA5IjeWBnL8ISZISQItxOYkOUvzsXKFDTI4tn";
 const apiKey = "test_pk_8UhBFl3ojxdyeKQnwWQTy4gQJnrxkfqk1jT8BFhy";
 
+
 const db = mysql.createConnection({
   host: db_host,
   user: db_user,
@@ -224,20 +225,33 @@ app.post('/gt/submitContact', (req, res) => {
 app.post('/gt/webhook', (req, res) => {
   console.log('Webhook received with body:', req.body);
   const signature = req.get('signature');
-  const payload = JSON.stringify(req.body);
 
+  // If there is no signature, ignore the request
   if (!signature) {
     console.log('Missing signature');
     return res.status(400).send('Missing signature');
   }
 
-  if (!verifySignature(payload, signature, apiSecretKey)) {
+  // Getting the raw payload from the request body
+  const payload = JSON.stringify(req.body);
+
+  // Calculate the signature
+  const computedSignature = crypto.createHmac('sha256', apiSecretKey)
+    .update(payload)
+    .digest('hex');
+
+  // If the calculated signature doesn't match the received signature, ignore the request
+  if (computedSignature !== signature) {
     console.log('Invalid signature');
+    console.log(`computedSignature: ${computedSignature}`);
+    console.log(`signature: ${signature}`);
     return res.status(403).send('Invalid signature');
   }
 
+  // If the signatures match, proceed to decode the JSON payload
   const event = req.body;
 
+  // Switch based on the event type
   try {
     switch (event.type) {
       case 'checkout.paid':
@@ -277,35 +291,6 @@ app.post('/gt/webhook', (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
-
-function verifySignature(payload, signature, secretKey) {
-  if (!signature) {
-    return false;
-  }
-
-  const sigPrefix = ''; // Define if there's a specific prefix used
-  const sigHashAlg = 'sha256'; // Define the hashing algorithm
-  const computedSignature = crypto
-    .createHmac(sigHashAlg, secretKey)
-    .update(payload)
-    .digest('hex');
-
-  const digest = Buffer.from(sigPrefix + computedSignature, 'utf8');
-  const signatureBuffer = Buffer.from(signature, 'utf8');
-
-  if (
-    signatureBuffer.length !== digest.length ||
-    !crypto.timingSafeEqual(digest, signatureBuffer)
-  ) {
-    console.log('The signature is not valid');
-    console.log(`computedSignature: ${computedSignature}`);
-    console.log(`signature: ${signature}`);
-    return false;
-  }
-
-  console.log('The signature is valid');
-  return true;
-}
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
