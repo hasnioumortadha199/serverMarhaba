@@ -23,7 +23,6 @@ const db_name = "condidate";
 const apiSecretKey = "test_sk_I0qMA5IjeWBnL8ISZISQItxOYkOUvzsXKFDTI4tn";
 const apiKey = "test_pk_8UhBFl3ojxdyeKQnwWQTy4gQJnrxkfqk1jT8BFhy";
 
-
 const db = mysql.createConnection({
   host: db_host,
   user: db_user,
